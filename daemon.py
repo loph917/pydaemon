@@ -3,9 +3,7 @@
 import sys, os, time, atexit, signal
 
 class daemon:
-    """A generic daemon class.
-
-    Usage: subclass the daemon class and override the run() method."""
+    """daemon class."""
 
     def __init__(self, progname, pidfile, logger, foreground):
         self.progname = progname
@@ -14,21 +12,23 @@ class daemon:
         self.foreground = foreground
         
         # setup the signals
-        signal.signal(signal.SIGUSR1, self.receive_signal)
-        signal.signal(signal.SIGUSR2, self.receive_signal)
-        signal.signal(signal.SIGHUP, self.receive_signal)
-        signal.signal(signal.SIGTERM, self.receive_signal)
+        signal.signal(signal.SIGUSR1, self.receive_signal) # dump the packet capture stats
+        signal.signal(signal.SIGUSR2, self.receive_signal) # dump the mac dictionary
+        signal.signal(signal.SIGHUP, self.receive_signal) # re-start
+        signal.signal(signal.SIGTERM, self.receive_signal) # kill it
     
     def daemonize(self):
-        """Deamonize class. UNIX double fork mechanism."""
+        """deamonize function using the classic UNIX double fork mechanism."""
         
         try: 
             pid = os.fork() 
             if pid > 0:
                 # exit first parent
                 sys.exit(0) 
-        except OSError as err: 
-            sys.stderr.write('fork #1 failed: {0}\n'.format(err))
+        except OSError as err:
+            message = 'fork #1 failed: {0}'.format(err)
+            self.logger.info(message)
+            sys.stderr.write(message)
             sys.exit(1)
     
         # decouple from parent environment
@@ -42,8 +42,10 @@ class daemon:
             if pid > 0:
                 # exit from second parent
                 sys.exit(0) 
-        except OSError as err: 
-            sys.stderr.write('fork #2 failed: {0}\n'.format(err))
+        except OSError as err:
+            message = 'fork #2 failed: {0}'.format(err)
+            self.logger.info(message)
+            sys.stderr.write(message)
             sys.exit(1) 
     
         # redirect standard file descriptors
@@ -63,7 +65,8 @@ class daemon:
         pid = str(os.getpid())
         with open(self.pidfile,'w+') as f:
             f.write(pid + '\n')
-        
+        f.close()
+
         return pid
     
     def delpid(self):
@@ -74,9 +77,10 @@ class daemon:
         try:
             with open(self.pidfile, 'r') as pf:
                 pid = int(pf.read().strip())
+                pf.close()
         except IOError:
             pid = None
-            
+
         return pid
 
     def start(self, restart = False):
@@ -85,10 +89,16 @@ class daemon:
         # Check for a pidfile to see if the daemon already runs
         pid = self.chkpid()
     
+        # is this a restart and not a first run?
+        if restart:
+            message = 'restaring the daemon (pid={0}'.format(pid)
+            self.logger.info(message)
+
         if pid:
             message = "pidfile {0} (pid={1}) already exist. " + \
-                    "daemon already running?\n"
-            sys.stderr.write(message.format(self.pidfile, pid))
+                    "daemon already running?\n".format(self.pidfile, pid)
+            self.logger.info(message)
+            sys.stderr.write(message)
             sys.exit(1)
         else:            
             # Start the daemon
@@ -110,9 +120,10 @@ class daemon:
             pid = None
     
         if not pid:
-            message = "pidfile {0} does not exist. " + \
-                    "daemon not running?\n"
-            sys.stderr.write(message.format(self.pidfile))
+            message = "pidfile does not exist. " + \
+                    "daemon not running?"
+            self.logger.info(message)
+            sys.stderr.write(message + '\n')
             return # not an error in a restart
 
         message = 'stopping daemon pid={}'.format(pid)
@@ -133,6 +144,7 @@ class daemon:
                 self.logger.info('stopped daemon, pid=(%d)' % pid)
                 sys.exit(1)
 
+
     def restart(self):
         """Restart the daemon."""
         message = 'restarting daemon'
@@ -143,6 +155,7 @@ class daemon:
         message = 'restarted daemon pid={}'.format(pid)
         self.logger.info(message)
 
+
     def status(self):
         """return the status of the damon"""
         pid = daemon.chkpid(self)
@@ -152,7 +165,4 @@ class daemon:
             print('%s is not runing' % (self.progname))
 
     def run(self):
-        """You should override this method when you subclass Daemon.
-        
-        It will be called after the process has been daemonized by 
-        start() or restart()."""
+        """Overrride this in your daemon subclass if you chose"""
