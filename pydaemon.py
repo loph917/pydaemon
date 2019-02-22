@@ -3,8 +3,26 @@
 import argparse, binascii, ctypes, datetime, fcntl, logging
 import logging.handlers, netifaces, os, pcapy, pwd, signal
 import socket, struct, sys, time
+from logging.handlers import TimedRotatingFileHandler
 from daemon import daemon
 
+
+# some globals (for now)
+
+
+# get our mac address
+my_mac = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]['addr']
+
+# initialize the dictionary for statistics
+stats = { 'total_pkts_in':0,        # total number of packets captured
+          'non_arp_pkts_in':0,      # number of non-arp packets captured (ignored)
+          'arp_requests_in':0,      # number of arp request packets captured
+          'arp_replies_in':0,       # number of arp reply packets captured (ignored)
+          'arp_response_out':0      # number of arp responses we've sent
+        }
+
+# this is the dictionary that defines  the hosts we'll send an
+#   arp resonse for
 mac_dict = { #"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.20" : "44:61:32:F5:24:0B",
             "192.168.1.21" : "44:61:32:E5:00:47",
@@ -26,17 +44,6 @@ mac_dict = { #"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.241" : "EC:FA:BC:91:A8:35"
             }
 
-# get our mac address
-my_mac = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]
-my_mac = my_mac['addr']
-
-stats = { 'total_pkts_in':0,        # total number of packets captured
-          'non_arp_pkts_in':0,      # number of non-arp packets captured (ignored)
-          'arp_requests_in':0,      # number of arp request packets captured
-          'arp_replies_in':0,       # number of arp reply packets captured (ignored)
-          'arp_response_out':0      # number of arp responses we've sent
-        }
-
 class mydaemon(daemon):
     def receive_signal(self, signum, stack):
         # we received a HUP, let's exit
@@ -44,7 +51,9 @@ class mydaemon(daemon):
             print('SIGHUP received -- restarting')
             self.restart()
         elif signum == signal.SIGUSR1:
-            print_statistics()
+            self.dump_stat()
+        elif signum == signal.SIGUSR2:
+            self.dump_mac_dictionary()
         elif signum == signal.SIGTERM:
             print('SIGTERM received')
             sys.exit(0)
@@ -52,19 +61,45 @@ class mydaemon(daemon):
             # process other signals as an exercise
             print('received signal %d\n' % signum)
 
+    """
     def setup_logging(self):
-        handler = logging.handlers.WatchedFileHandler(os.environ.get("LOGFILE", "/home/aaron/pydaemon.log"))
-        formatter = logging.Formatter(logging.BASIC_FORMAT)
-        handler.setFormatter(formatter)
+        formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s")
+
+        if (self.foreground):
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+
+        file_handler = TimedRotatingFileHandler(self.logfile, when='midnight')
+        file_handler.setFormatter(formatter)
+
         self.log = logging.getLogger(self.progname)
-        self.log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
-        self.log.addHandler(handler)
-        #return log
-    
-    def print_stats(self):
-        print(stats)
+        self.log.setLevel(logging.DEBUG)
+        if (self.foreground):
+            self.log.addHandler(console_handler)
+
+        self.log.addHandler(file_handler)
+
+        # old and remove, above is new
+        #handler = logging.handlers.WatchedFileHandler(os.environ.get("LOGFILE", "/home/aaron/pydaemon.log"))
+        #formatter = logging.Formatter(logging.BASIC_FORMAT)
+        #handler.setFormatter(formatter)
+        #self.log = logging.getLogger(self.progname)
+        #self.log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
+        #self.log.addHandler(handler)
+
+        return self.log
+    """
+
+    def dump_stat(self):
+        message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
+        logger.info(message)
         return
-        
+
+    def dump_mac_dictionary(self):
+        message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(mac_dict.items()))
+        logger.info(message)
+        return
+
     def run(self):
         """Overloaded run form the main class"""
         #
@@ -124,12 +159,18 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
     
     #print('aa=', target_mac, sender_mac, my_mac, ARP)
     if (broadcast_reply):
-        eth_hdr = struct.pack("!6s6sH", eth_ston('FF:FF:FF:FF:FF:FF'), eth_ston(my_mac), 0x0806)
+        eth_hdr = struct.pack("!6s6sH", eth_ston('FF:FF:FF:FF:FF:FF'),
+            eth_ston(my_mac), 0x0806)
     else:
-        eth_hdr = struct.pack("!6s6sH", eth_ston(sender_mac), eth_ston(my_mac), 0x0806)
+        eth_hdr = struct.pack("!6s6sH", eth_ston(sender_mac),
+            eth_ston(my_mac), 0x0806)
     #print('  oe=', eth_hdr)
     #arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002, eth_ston(my_mac), socket.inet_aton(target_ip), eth_ston(sender_mac), socket.inet_aton(sender_ip))
-    arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002, eth_ston(mac_dict[target_ip]), socket.inet_aton(target_ip), eth_ston(sender_mac), socket.inet_aton(sender_ip))
+    arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002,
+        eth_ston(mac_dict[target_ip]),
+        socket.inet_aton(target_ip),
+        eth_ston(sender_mac), 
+        socket.inet_aton(sender_ip))
     #print('  oa=', arp_pkt)
     packet = eth_hdr + arp_pkt
     #print(packet)
@@ -138,10 +179,14 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
 
 
 def arp_request(target_ip, sender_ip):
+    global logger
     """ we have an arp request, do we respond? """
     #print('%s is asking about %s' % (sender_ip, target_ip))
     if (target_ip in mac_dict):
-        print('%s asked about %s, sending a response' % (sender_ip, target_ip))
+        message = '{} asked about {}, sending reponse'.format(sender_ip, target_ip)
+        print(message)
+        logger.info(message)
+        #print('%s asked about %s, sending a response' % (sender_ip, target_ip))
         return True
     else:
         #print('%s not found' % target_ip)
@@ -155,7 +200,9 @@ def arp_response():
 
 def print_statistics():
     """Let's print out some statistics we kept while running."""
-    print(stats)
+    message = ', '.join("{!s}={!r}".format(key,val) for (key,val) in sorted(stats.items()))
+    logger.info(messagee)
+
     return
         
 def get_program_name():
@@ -169,12 +216,38 @@ def get_program_name():
         
     return progname
 
+def get_logfile():
+    logfile = None
+    logfile = progname + '.log'
+    return logfile
+
+def setup_logging(logfile, progname, foreground = False):
+    """ define how we want to log things """
+    formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s",
+        "%Y-%m-%d %H:%M:%S")
+
+    if (foreground):
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+
+    file_handler = TimedRotatingFileHandler(logfile, when='midnight')
+    file_handler.setFormatter(formatter)
+
+    logger = logging.getLogger(progname)
+    logger.setLevel(logging.DEBUG)
+    if (foreground):
+        logger.addHandler(console_handler)
+
+    logger.addHandler(file_handler)
+    return logger
+
 
 def runSniffer(int, broadcast_reply):
     """ run the sniffer """
-    cap = pcapy.open_live(int, 65536, 1, 0)
-    # ethernet protocol types
-    ARP = 1544    
+    SNAPLEN = 2048 # how big of a pcaket do we want to capture? 
+    ARP = 1544 # this is the protocol number in decimal (0x0806)
+    cap = pcapy.open_live(int, SNAPLEN, 1, 0)
+
     try:
         while True:
             (header, packet) = cap.next()
@@ -218,39 +291,40 @@ def runSniffer(int, broadcast_reply):
         print_statistics()
         sys.exit(0)
 
-def main():
-    # get the base filename
-    progname = get_program_name()
-    
+def main(progname, logfile, interface, logger):
+    # build up the arguments to feed the parser
     parser = argparse.ArgumentParser(description='aaron\'s arp responder (aar)')
-    parser.add_argument('cmd', choices=['restart', 'start', 'stop', 'status', 'stats', 'help'])
+    parser.add_argument('cmd', choices=['restart', 'start', 'stop', 'status', 'help'])
     parser.add_argument('--pid', dest='pid', action='store',
         default='/tmp/' + progname + '.pid',
         help='pid file (default: /tmp/' + progname + '.pid)')
+    parser.add_argument('--logfile', dest='logfile', action='store',
+        default=progname + '.log',
+        help='log file (default: ' + progname + '.log)')
     parser.add_argument('-i', '--int', action='store',
-        default='wlan0', help='which interface to listen on')
+        default='wlan0', help='interface to listen on (default: ' + interface + ')')
     parser.add_argument('-fg', '--foreground', action='store_true',
-        default=False, help='run in the foreground')
+        default=False, help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
-        default=False, help='broadcast arp responses')
+        default=False, help='broadcast arp responses (default: False)' )
 
+    # did we get anything useful?
     args = parser.parse_args()
+    pidfile = args.pid
     cmd = args.cmd
     interface = args.int
     foreground = args.foreground
+    logfile = args.logfile
     broadcast_reply = args.broadcast
-    #print(args)
-
-    # setup the logging
-    #log = daemon.setup_logging()
     
     # instintate a daemon object
-    daemon = mydaemon(progname, args.pid)
-    daemon.setup_logging()
+    daemon = mydaemon(progname, pidfile, logger, foreground)
     
+    # the various commands to control the daemon
     if (cmd == 'start'):
         if (foreground == False):
             pid = daemon.start()
+            logger.debug('starting daemon')
     elif (cmd == 'stop'):
         daemon.stop()
         sys.exit(0)
@@ -259,9 +333,6 @@ def main():
     elif (cmd == 'status'):
         daemon.status()
         sys.exit(0)
-    elif (cmd == 'stats'):
-        daemon.print_stats()
-        sys.exit(0)
     elif (cmd == 'help'):
         parser.print_help()
         sys.exit(0)
@@ -269,27 +340,36 @@ def main():
         parser.print_help()
         sys.exit(0)
     
+    logger.info('starting sniffer')
     runSniffer(interface, broadcast_reply)
 
 if __name__ == "__main__":
     # make sure we are using python3
     if sys.version_info[0] < 3:
         print('python3 must be used')
-        sys.exit(3)
+        sys.exit(1)
 
+    # we use the pcapy module (https://www.secureauth.com/labs/open-source-tools/pcapy)
     modulename = 'pcapy'
     if modulename not in sys.modules:
         print('You have not imported the {} module'.format(modulename))
         sys.exit(3)
 
+    # since we using raw sockets, we need to run as root
     uid = (pwd.getpwuid( os.getuid()).pw_uid)
     if (uid != 0):
         print('must be root to run this')
+        sys.exit(1)
 
     # make sure we have enough arguments
     if len(sys.argv) < 2:
-        print("usage: %s start|stop|restart|help" % sys.argv[0])
-        sys.exit(2)
+        print("usage: %s start|stop|restart|status|help" % sys.argv[0])
+        sys.exit(1)
 
-    main()
+    progname = get_program_name() # correct progran name
+    logfile = get_logfile() # default log filename
+    interface = 'wlan0' # interface to use (should be dynamic)
+    logger = setup_logging(logfile, progname)
+
+    main(progname, logfile, interface, logger)
     

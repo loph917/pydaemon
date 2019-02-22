@@ -7,9 +7,11 @@ class daemon:
 
     Usage: subclass the daemon class and override the run() method."""
 
-    def __init__(self, progname, pidfile):
+    def __init__(self, progname, pidfile, logger, foreground):
         self.progname = progname
         self.pidfile = pidfile
+        self.logger = logger
+        self.foreground = foreground
         
         # setup the signals
         signal.signal(signal.SIGUSR1, self.receive_signal)
@@ -92,7 +94,7 @@ class daemon:
             # Start the daemon
             pid = self.daemonize()
             message = 'started daemon pid={}'.format(pid)
-            self.log.info(message)
+            self.logger.info(message)
             
             #self.run()
             return pid
@@ -114,7 +116,7 @@ class daemon:
             return # not an error in a restart
 
         message = 'stopping daemon pid={}'.format(pid)
-        self.log.info(message)
+        self.logger.info(message)
         
         # Try killing the daemon process    
         try:
@@ -128,18 +130,18 @@ class daemon:
                     os.remove(self.pidfile)
             else:
                 print (str(err.args))
-                self.log.info('stopped daemon, pid=(%d)' % pid)
+                self.logger.info('stopped daemon, pid=(%d)' % pid)
                 sys.exit(1)
 
     def restart(self):
         """Restart the daemon."""
         message = 'restarting daemon'
-        self.log.info(message)
+        self.logger.info(message)
         
         self.stop()
         pid = self.start(True)
         message = 'restarted daemon pid={}'.format(pid)
-        self.log.info(message)
+        self.logger.info(message)
 
     def status(self):
         """return the status of the damon"""
