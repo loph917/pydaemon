@@ -99,8 +99,8 @@ class Daemon:
             self.logger.info(message)
 
         if pid:
-            message = "pidfile {0} (pid={1}) already exist. " + \
-                    "daemon already running?\n".format(self.pidfile, pid)
+            message = "pidfile {0} (pid={1}) already exist. " \
+                      + "daemon already running?\n".format(self.pidfile, pid)
             self.logger.info(message)
             sys.stderr.write(message)
             sys.exit(1)
@@ -162,7 +162,7 @@ class Daemon:
 
     def status(self):
         """return the status of the damon"""
-        pid = daemon.chkpid(self)
+        pid = Daemon.chkpid(self)
         if pid:
             print('%s running (pid=%d)' % (self.progname, pid))
         else:
