@@ -317,29 +317,38 @@ def runSniffer(config):
         sys.exit(0)
 
 def create_parser(config):
+    # setup a few predetermined values
+    config['stat_interval'] = 60
+    config['pidfile'] = config['progname'] + '.pid'
+
+    # build the parser
     parser = argparse.ArgumentParser(description='aaron\'s arp responder (aar)')
     parser.add_argument('cmd', choices=['restart', 'start', 'stop', 'status', 'help'])
     parser.add_argument('--pid', dest='pid', action='store',
-                        default='/tmp/' + config['progname'] + '.pid',
+                        default=config['pidfile'],
                         help='pid file (default: /tmp/' + config['progname'] + '.pid)')
     parser.add_argument('--logfile', dest='logfile', action='store',
-                        default=config['progname'] + '.log',
+                        default=config['logfile'],
                         help='log file (default: ' + config['progname'] + '.log)')
     parser.add_argument('-i', '--int', action='store',
-                        default='wlan0', help='interface to listen on (default: ' + config['interface'] + ')')
+                        default=config['interface'],
+                        help='interface to listen on (default: ' + config['interface'] + ')')
     parser.add_argument('-s', '--stat-interval', action='store',
-                        default=60, help='statistics logging interval (default: ' + config['interval'] + ')')
+                        default=60,
+                        help='statistics logging interval (default: ' + config['stat_interval'] + ')')
     parser.add_argument('-fg', '--foreground', action='store_true',
-                        default=False, help='run in the foreground (default: False)')
+                        default=False,
+                        help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
-                        default=False, help='broadcast arp responses (default: False)')
+                        default=False,
+                        help='broadcast arp responses (default: False)')
     return parser
 
 
 def handle_args(args, config):
+    """ process the arguments """
     # did we get anything useful?
     
-    cmd = args.cmd
     config['pidfile']  = args.pid
     config['interface'] = args.int
     config['foreground'] = args.foreground
@@ -351,7 +360,8 @@ def handle_args(args, config):
 
 def main(config):
     """ this is the main() entry point """
-    # build up the arguments to feed the parser
+
+    # argument handling
     parser = create_parser(config)
     args = parser.parse_args()
     handle_args(args, config)
@@ -364,6 +374,9 @@ def main(config):
     # are we running in the foregound?
     if config['foreground']:
         logging_add_foreground(config)
+
+    # get the command
+    cmd = args.cmd
     
     # instintate a daemon object
     daemon = my_daemon(config)
