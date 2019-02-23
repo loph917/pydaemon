@@ -335,7 +335,7 @@ def create_parser(config):
                         help='interface to listen on (default: ' + config['interface'] + ')')
     parser.add_argument('-s', '--stat-interval', action='store',
                         default=60,
-                        help='statistics logging interval (default: ' + config['stat_interval'] + ')')
+                        help='statistics logging interval (default: ' + str(config['stat_interval']) + ')')
     parser.add_argument('-fg', '--foreground', action='store_true',
                         default=False,
                         help='run in the foreground (default: False)')
