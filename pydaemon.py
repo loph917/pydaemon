@@ -176,7 +176,6 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
 
 
 def arp_request(target_ip, sender_ip):
-    #global logger
     """ we have an arp request, do we respond? """
     #print('%s is asking about %s' % (sender_ip, target_ip))
     if target_ip in mac_dict:
@@ -197,7 +196,7 @@ def arp_reply():
 
 
 def print_statistics():
-    """Let's print out some statistics we kept while running."""
+    """ let's print out some statistics we kept while running """
     message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
     logger.info(message)
 
@@ -221,7 +220,7 @@ def get_logfile():
 
 def setup_logging(logfile, progname, foreground=False):
     """ define how we want to log things """
-    formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s",
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                                   "%Y-%m-%d %H:%M:%S")
 
     if foreground:
@@ -242,7 +241,7 @@ def setup_logging(logfile, progname, foreground=False):
 
 def runSniffer(interface, broadcast_reply, stat_interval):
     """ run the sniffer """
-    SNAPLEN = 2048 # how big of a pcaket do we want to capture? 
+    SNAPLEN = 2048 # how big of a packet do we want to capture? 
     ARP = 1544 # (0x0806) this is the protocol number in decimal
     lastnow = 0
 
@@ -269,18 +268,19 @@ def runSniffer(interface, broadcast_reply, stat_interval):
             eth_length = 14
             arp_length = 28
             
+            # this is the ethernet header
             eth_header = packet[:eth_length]
             eth = decode_eth(eth_header)
-            eth_protocol = socket.ntohs(eth[2])
-            dst = eth_ntos(packet[0:6])
-            src = eth_ntos(packet[6:12])
+            eth_protocol = socket.ntohs(eth[2]) # proto
+            dst = eth_ntos(packet[0:6]) # dmac
+            src = eth_ntos(packet[6:12]) # smac
             
             # arp packets only please
             if eth_protocol != ARP:
                 stats['non_arp_pkts_in'] += 1
                 continue
             else:
-                #print('arp ', dst, src, eth_protocol) arp  ff:ff:ff:ff:ff:ff f0:81:73:0a:95:fc 1544
+                # this is the arp protocol data
                 arp_data = decode_arp(packet[eth_length:(arp_length + eth_length)])
                 sender_mac = eth_ntos(arp_data[5])
                 sender_ip = socket.inet_ntoa(arp_data[6])
