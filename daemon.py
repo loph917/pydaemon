@@ -9,11 +9,11 @@ import signal
 class Daemon:
     """daemon class."""
 
-    def __init__(self, progname, pidfile, logger, foreground):
-        self.progname = progname
-        self.pidfile = pidfile
-        self.logger = logger
-        self.foreground = foreground
+    def __init__(self, config):
+        self.progname = config['progname']
+        self.pidfile = config['pidfile']
+        self.logger = config['logger']
+        self.foreground = config['foreground']
         
         # setup the signals
         signal.signal(signal.SIGUSR1, self.receive_signal) # dump the packet capture stats

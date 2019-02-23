@@ -16,11 +16,6 @@ from daemon import Daemon
 
 
 # some globals (for now)
-
-
-# get our mac address
-my_mac = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]['addr']
-
 # initialize the dictionary for statistics
 stats = {'total_pkts_in':0,        # total number of packets captured
         'non_arp_pkts_in':0,      # number of non-arp packets captured (ignored)
@@ -72,13 +67,13 @@ class my_daemon(Daemon):
 
     def dump_stat(self):
         message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
-        logger.info(message)
+        config['logger'].info(message)
         return
 
 
     def dump_mac_dictionary(self):
         message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(mac_dict.items()))
-        logger.info(message)
+        config['logger'].info(message)
         return
 
 
@@ -181,7 +176,7 @@ def arp_request(target_ip, sender_ip):
     if target_ip in mac_dict:
         message = '{} asked about {}, sending reponse'.format(sender_ip, target_ip)
         print(message)
-        logger.info(message)
+        config['logger'].info(message)
         #print('%s asked about %s, sending a response' % (sender_ip, target_ip))
         return True
     else:
@@ -198,13 +193,13 @@ def arp_reply():
 def print_statistics():
     """ let's print out some statistics we kept while running """
     message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
-    logger.info(message)
+    config['logger'].info(message)
 
     return
         
 def get_program_name():
+    """ strip out the basefilename """
     # get the base filename
-    progname = None
     progname = os.path.splitext((sys.argv[0]))[0]
     
     # but if we started with ./ remove it
@@ -227,28 +222,31 @@ def check_devices(interface):
     return True
 
 
-def setup_logging(logfile, progname, foreground=False):
+#def setup_logging(logfile, progname, foreground=False):
+def setup_logging(config):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                                   "%Y-%m-%d %H:%M:%S")
 
-    if foreground:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-
+    # create a file handler
     file_handler = TimedRotatingFileHandler(logfile, when='midnight')
     file_handler.setFormatter(formatter)
 
+    # create the logger object
     logger = logging.getLogger(progname)
     logger.setLevel(logging.DEBUG)
-    if foreground:
+
+    # attach the handlers
+    logger.addHandler(file_handler)
+    if config['foreground']:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-    logger.addHandler(file_handler)
     return logger
 
 
-def runSniffer(interface, broadcast_reply, stat_interval):
+def runSniffer(config):
     """ run the sniffer """
     SNAPLEN = 2048 # how big of a packet do we want to capture? 
     ARP = 1544 # (0x0806) this is the protocol number in decimal
@@ -256,18 +254,18 @@ def runSniffer(interface, broadcast_reply, stat_interval):
 
     # this is the capture object
     #   in hindsight i could have filtered for arp, but what fun is that?
-    cap = pcapy.open_live(interface, SNAPLEN, 1, 0)
+    cap = pcapy.open_live(config['interface'], SNAPLEN, 1, 0)
 
     # the big bad loop
     try:
         while True:
             now = int(time.time())
             # do we want to print stats at all?
-            if stat_interval > 0:
+            if config['stat_interval'] > 0:
                 # make sure we don't catch all the microseconds of now
                 if now != lastnow:
                     # is this our interval?
-                    if now % stat_interval == 0: # every 60 seconds emit stats
+                    if now % config['stat_interval'] == 0: # every 60 seconds emit stats
                         print_statistics()
                         lastnow = now
 
@@ -302,7 +300,7 @@ def runSniffer(interface, broadcast_reply, stat_interval):
                     #print('  ie=', eth_header)
                     #print('  ia=', packet[eth_length:(arp_length + eth_length)])
                     if arp_request(target_ip, sender_ip):
-                        send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply)
+                        send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, config['broadcast_reply'])
                 elif arp_data[4] == 2: # arp reply, we aren't doing anything with these
                     arp_reply()
                 else:
@@ -312,48 +310,59 @@ def runSniffer(interface, broadcast_reply, stat_interval):
         print_statistics()
         sys.exit(0)
 
-def main(progname, logfile, interface, logger):
-    # build up the arguments to feed the parser
+def create_parser(config):
     parser = argparse.ArgumentParser(description='aaron\'s arp responder (aar)')
     parser.add_argument('cmd', choices=['restart', 'start', 'stop', 'status', 'help'])
     parser.add_argument('--pid', dest='pid', action='store',
-                        default='/tmp/' + progname + '.pid',
-                        help='pid file (default: /tmp/' + progname + '.pid)')
+                        default='/tmp/' + config['progname'] + '.pid',
+                        help='pid file (default: /tmp/' + config['progname'] + '.pid)')
     parser.add_argument('--logfile', dest='logfile', action='store',
-                        default=progname + '.log',
-                        help='log file (default: ' + progname + '.log)')
+                        default=config['progname'] + '.log',
+                        help='log file (default: ' + config['progname'] + '.log)')
     parser.add_argument('-i', '--int', action='store',
-                        default='wlan0', help='interface to listen on (default: ' + interface + ')')
+                        default='wlan0', help='interface to listen on (default: ' + config['interface'] + ')')
     parser.add_argument('-s', '--stat-interval', action='store',
-                        default=60, help='statistics logging interval (default: ' + str(60) + ')')
+                        default=60, help='statistics logging interval (default: ' + config['interval'] + ')')
     parser.add_argument('-fg', '--foreground', action='store_true',
                         default=False, help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
                         default=False, help='broadcast arp responses (default: False)')
 
+    return parser
+
+
+def handle_args(args, config):
     # did we get anything useful?
-    args = parser.parse_args()
-    pidfile = args.pid
-    cmd = args.cmd
-    interface = args.int
-    foreground = args.foreground
-    logfile = args.logfile
-    broadcast_reply = args.broadcast
-    stat_interval = args.stat_interval
     
+    cmd = args.cmd
+    config['pidfile']  = args.pid
+    config['interface'] = args.int
+    config['foreground'] = args.foreground
+    config['logfile'] = args.logfile
+    config['broadcast_reply'] = args.broadcast
+    config['stat_interval'] = args.stat_interval
+
+
+def main(config):
+    """ this is the main() entry point """
+    # build up the arguments to feed the parser
+    parser = create_parser(config)
+    args = parser.parse_args()
+    handle_args(args, config)
+
     # check the device to make sure it exists
-    if not check_devices(interface):
-        print('{} is not a valid device.'.format(interface))
+    if not check_devices(config['interface']):
+        print('{} is not a valid device.'.format(config['interface']))
         sys.exit(1)
 
     # instintate a daemon object
-    daemon = my_daemon(progname, pidfile, logger, foreground)
-    
+    daemon = my_daemon(config)
+
     # the various commands to control the daemon
     if cmd == 'start':
         if not foreground:
             pid = daemon.start()
-            logger.debug('starting daemon')
+            config['logger'].debug('starting daemon')
     elif cmd == 'stop':
         daemon.stop()
         sys.exit(0)
@@ -369,8 +378,8 @@ def main(progname, logfile, interface, logger):
         parser.print_help()
         sys.exit(0)
     
-    logger.info('starting sniffer')
-    runSniffer(interface, broadcast_reply, stat_interval)
+    config['logger'].info('starting sniffer')
+    runSniffer(config)
 
 if __name__ == "__main__":
     # make sure we are using python3
@@ -379,9 +388,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # we use the pcapy module (https://www.secureauth.com/labs/open-source-tools/pcapy)
-    xmodulename = 'pcapy'
-    if xmodulename not in sys.modules:
-        print('You have not imported the {} module'.format(xmodulename))
+    # the pcapy module requires libpcap-dev or libpcap-devel installed
+    modulename = 'pcapy'
+    if modulename not in sys.modules:
+        print('You have not imported the {} module'.format(modulename))
         sys.exit(3)
 
     # since we using raw sockets, we need to run as root
@@ -396,10 +406,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # create some 'globals'
-    progname = get_program_name() # correct progran name
-    logfile = get_logfile() # default log filename
-    interface = 'wlan0' # interface to use (should be dynamic)
-    logger = setup_logging(logfile, progname)
-
-    main(progname, logfile, interface, logger)
+    config = {}
+    config['progname'] = get_program_name() # correct progran name
+    config['logfile'] = get_logfile() # default log filename
+    config['interface'] = 'wlan0' # interface to use
+    config['logger'] = setup_logging(config['logfile'], config['progname'])
+    # get our mac address
+    config['my_mac'] = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]['addr']
     
+    main(config)
