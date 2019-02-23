@@ -130,15 +130,15 @@ def decode_arp(arp_data):
 
 def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
     arp_packet = [
-        struct.pack('!H', 0x0001), # HRD
-        struct.pack('!H', 0x0800), # PRO
-        struct.pack('!B', 0x06), # HLN
-        struct.pack('!B', 0x04), # PLN 
-        struct.pack('!H', 0x0002), # OP
-        struct.pack('!6B', *(eth_ston(sender_mac))), # SHA
-        struct.pack('!4B', *socket.inet_aton(sender_ip)), # SPA
-        struct.pack('!6B', *(0x00,)*6), # THA
-        struct.pack('!4B', *socket.inet_aton(target_ip)) # TPA
+        struct.pack('!H', 0x0001), # hw type (0x1 == ethernet)
+        struct.pack('!H', 0x0800), # proto (0x0800 == ipv4)
+        struct.pack('!B', 0x06), # hw size
+        struct.pack('!B', 0x04), # proto size
+        struct.pack('!H', 0x0002), # opcode
+        struct.pack('!6B', *(eth_ston(sender_mac))), # sender hw addr (mac)
+        struct.pack('!4B', *socket.inet_aton(sender_ip)), # sender proto addr (ip)
+        struct.pack('!6B', *(0x00,)*6), # target hw addr (mac)
+        struct.pack('!4B', *socket.inet_aton(target_ip)) # target proto addr (mac)
     ]
     #print(arp_packet)
     return arp_packet
@@ -263,8 +263,8 @@ def runSniffer(interface, broadcast_reply, stat_interval):
                         lastnow = now
 
             (header, packet) = cap.next()
-            # this is the length of the ethernet header
             stats['total_pkts_in'] += 1
+            # this is the length of the ethernet header
             eth_length = 14
             arp_length = 28
             
