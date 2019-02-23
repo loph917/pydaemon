@@ -218,6 +218,15 @@ def get_logfile():
     logfile = progname + '.log'
     return logfile
 
+
+def check_devices(interface):
+    devices = pcapy.findalldevs()
+    if interface not in devices:
+        return False
+    
+    return True
+
+
 def setup_logging(logfile, progname, foreground=False):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -332,6 +341,11 @@ def main(progname, logfile, interface, logger):
     broadcast_reply = args.broadcast
     stat_interval = args.stat_interval
     
+    # check the device to make sure it exists
+    if not check_devices(interface):
+        print('{} is not a valid device.'.format(interface))
+        sys.exit(1)
+
     # instintate a daemon object
     daemon = my_daemon(progname, pidfile, logger, foreground)
     
