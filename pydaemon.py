@@ -140,7 +140,7 @@ def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
 
 
 def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip,
-                    my_mac, broadcast_reply=False):
+                    src_mac, broadcast_reply=False):
     """ send an arp packet to respond to the arp request """
     sock = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -176,7 +176,6 @@ def arp_request(target_ip, sender_ip):
     #print('%s is asking about %s' % (sender_ip, target_ip))
     if target_ip in mac_dict:
         message = '{} asked about {}, sending reponse'.format(sender_ip, target_ip)
-        print(message)
         config['logger'].info(message)
         #print('%s asked about %s, sending a response' % (sender_ip, target_ip))
         return True
@@ -224,10 +223,12 @@ def check_devices(interface):
 
 
 def logging_add_foreground(config):
-    if config['foreground']:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        config['logger'].addHandler(console_handler)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s",
+                                  "%Y-%m-%d %H:%M:%S")
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    config['logger'].addHandler(console_handler)
     
     return
 
@@ -319,7 +320,7 @@ def runSniffer(config):
 def create_parser(config):
     # setup a few predetermined values
     config['stat_interval'] = 60
-    config['pidfile'] = config['progname'] + '.pid'
+    config['pidfile'] = '/tmp/' + config['progname'] + '.pid'
 
     # build the parser
     parser = argparse.ArgumentParser(description='aaron\'s arp responder (aar)')
@@ -383,7 +384,7 @@ def main(config):
 
     # the various commands to control the daemon
     if cmd == 'start':
-        if not foreground:
+        if not config['foreground']:
             pid = daemon.start()
             config['logger'].debug('starting daemon')
     elif cmd == 'stop':
