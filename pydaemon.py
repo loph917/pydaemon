@@ -140,7 +140,7 @@ def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
 
 
 def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip,
-                    broadcast_reply=False, my_mac):
+                    my_mac, broadcast_reply=False):
     """ send an arp packet to respond to the arp request """
     sock = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -301,7 +301,7 @@ def runSniffer(config):
                     #print('  ia=', packet[eth_length:(arp_length + eth_length)])
                     if arp_request(target_ip, sender_ip):
                         send_arp_packet(sender_mac, sender_ip, target_mac, target_ip,
-                                        config['broadcast_reply'], config['my_mac'])
+                                        config['my_mac'], config['broadcast_reply'])
                 elif arp_data[4] == 2: # arp reply, we aren't doing anything with these
                     arp_reply()
                 else:
