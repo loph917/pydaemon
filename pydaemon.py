@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 
-import argparse, binascii, ctypes, datetime, fcntl, logging
-import logging.handlers, netifaces, os, pcapy, pwd, signal
-import socket, struct, sys, time
+import argparse
+import netifaces
+import os
+import pcapy
+import pwd
+import signal
+import socket
+import struct
+import sys
+import time
+import logging
 from logging.handlers import TimedRotatingFileHandler
 from daemon import daemon
 
@@ -83,7 +91,7 @@ class mydaemon(daemon):
 
 def eth_ntos(a):
     """ convert a 6 byte field to a human readable mac address """
-    b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((a[0]) , (a[1]) , (a[2]), (a[3]), (a[4]) , (a[5]))
+    b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((a[0]), (a[1]), (a[2]), (a[3]), (a[4]), (a[5]))
     return b
 
 
@@ -92,7 +100,7 @@ def eth_ston(a):
     b = a.split(':')
     c = struct.pack('x')
 
-    c = struct.pack('!6B', int(b[0],16), int(b[1],16), int(b[2],16), int(b[3],16), int(b[4],16), int(b[5],16))
+    c = struct.pack('!6B', int(b[0], 16), int(b[1], 16), int(b[2], 16), int(b[3], 16), int(b[4], 16), int(b[5], 16))
 
     return c
 
@@ -132,12 +140,12 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
     s.bind(('wlan0', 0))
     
     #print('aa=', target_mac, sender_mac, my_mac, ARP)
-    if (broadcast_reply):
+    if broadcast_reply:
         eth_hdr = struct.pack("!6s6sH", eth_ston('FF:FF:FF:FF:FF:FF'),
-            eth_ston(my_mac), 0x0806)
+                              eth_ston(my_mac), 0x0806)
     else:
         eth_hdr = struct.pack("!6s6sH", eth_ston(sender_mac),
-            eth_ston(my_mac), 0x0806)
+                              eth_ston(my_mac), 0x0806)
     #print('  oe=', eth_hdr)
     #arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002, eth_ston(my_mac), socket.inet_aton(target_ip), eth_ston(sender_mac), socket.inet_aton(sender_ip))
     arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002,
@@ -159,7 +167,7 @@ def arp_request(target_ip, sender_ip):
     #global logger
     """ we have an arp request, do we respond? """
     #print('%s is asking about %s' % (sender_ip, target_ip))
-    if (target_ip in mac_dict):
+    if target_ip in mac_dict:
         message = '{} asked about {}, sending reponse'.format(sender_ip, target_ip)
         print(message)
         logger.info(message)
@@ -204,9 +212,9 @@ def setup_logging(logfile, progname, foreground = False):
     formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s",
         "%Y-%m-%d %H:%M:%S")
 
-    if (foreground):
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
+    if foreground:
+      console_handler = logging.StreamHandler(sys.stdout)
+      console_handler.setFormatter(formatter)
 
     file_handler = TimedRotatingFileHandler(logfile, when='midnight')
     file_handler.setFormatter(formatter)
@@ -235,11 +243,11 @@ def runSniffer(interface, broadcast_reply, stat_interval):
         while True:
             now = int(time.time())
             # do we want to print stats at all?
-            if (stat_interval > 0):
+            if stat_interval > 0:
                 # make sure we don't catch all the microseconds of now
-                if (now != lastnow):
+                if now != lastnow:
                     # is this our interval?
-                    if (now % stat_interval) == 0: # every 60 seconds emit stats
+                    if now % stat_interval == 0: # every 60 seconds emit stats
                         print_statistics()
                         lastnow = now
 
@@ -266,15 +274,15 @@ def runSniffer(interface, broadcast_reply, stat_interval):
                 sender_ip = socket.inet_ntoa(arp_data[6])
                 target_mac = eth_ntos(arp_data[7])
                 target_ip = socket.inet_ntoa(arp_data[8])
-                if (arp_data[4] == 1): # arp request
+                if arp_data[4] == 1: # arp request
                     stats['arp_requests_in'] = stats['arp_requests_in'] + 1
                     # debugging here
                     #print('who has %s (%s)? tell %s (%s)' % (target_ip, target_mac, sender_ip, sender_mac))
                     #print('  ie=', eth_header)
                     #print('  ia=', packet[eth_length:(arp_length + eth_length)])
-                    if (arp_request(target_ip, sender_ip)):
+                    if arp_request(target_ip, sender_ip):
                         send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply)
-                elif (arp_data[4] == 2): # arp reply, we aren't doing anything with these
+                elif arp_data[4] == 2: # arp reply, we aren't doing anything with these
                     arp_reply()
                 else:
                     pass
@@ -288,19 +296,19 @@ def main(progname, logfile, interface, logger):
     parser = argparse.ArgumentParser(description='aaron\'s arp responder (aar)')
     parser.add_argument('cmd', choices=['restart', 'start', 'stop', 'status', 'help'])
     parser.add_argument('--pid', dest='pid', action='store',
-        default='/tmp/' + progname + '.pid',
-        help='pid file (default: /tmp/' + progname + '.pid)')
+                        default='/tmp/' + progname + '.pid',
+                        help='pid file (default: /tmp/' + progname + '.pid)')
     parser.add_argument('--logfile', dest='logfile', action='store',
-        default=progname + '.log',
-        help='log file (default: ' + progname + '.log)')
+                        default=progname + '.log',
+                        help='log file (default: ' + progname + '.log)')
     parser.add_argument('-i', '--int', action='store',
-        default='wlan0', help='interface to listen on (default: ' + interface + ')')
+                        default='wlan0', help='interface to listen on (default: ' + interface + ')')
     parser.add_argument('-s', '--stat-interval', action='store',
-        default=60, help='statistics logging interval (default: ' + str(60) + ')')
+                        default=60, help='statistics logging interval (default: ' + str(60) + ')')
     parser.add_argument('-fg', '--foreground', action='store_true',
-        default=False, help='run in the foreground (default: False)')
+                        default=False, help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
-        default=False, help='broadcast arp responses (default: False)' )
+                        default=False, help='broadcast arp responses (default: False)' )
 
     # did we get anything useful?
     args = parser.parse_args()
@@ -316,19 +324,19 @@ def main(progname, logfile, interface, logger):
     daemon = mydaemon(progname, pidfile, logger, foreground)
     
     # the various commands to control the daemon
-    if (cmd == 'start'):
-        if (foreground == False):
+    if cmd == 'start':
+        if not foreground:
             pid = daemon.start()
             logger.debug('starting daemon')
-    elif (cmd == 'stop'):
+    elif cmd == 'stop':
         daemon.stop()
         sys.exit(0)
-    elif (cmd == 'restart'):
+    elif cmd == 'restart':
         daemon.restart()
-    elif (cmd == 'status'):
+    elif cmd == 'status':
         daemon.status()
         sys.exit(0)
-    elif (cmd == 'help'):
+    elif cmd == 'help':
         parser.print_help()
         sys.exit(0)
     else :
