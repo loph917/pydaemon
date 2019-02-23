@@ -360,9 +360,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # we use the pcapy module (https://www.secureauth.com/labs/open-source-tools/pcapy)
-    modulename = 'pcapy'
-    if modulename not in sys.modules:
-        print('You have not imported the {} module'.format(modulename))
+    xmodulename = 'pcapy'
+    if xmodulename not in sys.modules:
+        print('You have not imported the {} module'.format(xmodulename))
         sys.exit(3)
 
     # since we using raw sockets, we need to run as root
