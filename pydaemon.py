@@ -22,16 +22,16 @@ from daemon import daemon
 my_mac = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]['addr']
 
 # initialize the dictionary for statistics
-stats = { 'total_pkts_in':0,        # total number of packets captured
-          'non_arp_pkts_in':0,      # number of non-arp packets captured (ignored)
-          'arp_requests_in':0,      # number of arp request packets captured
-          'arp_replies_in':0,       # number of arp reply packets captured (ignored)
-          'arp_response_out':0      # number of arp responses we've sent
-        }
+stats = {'total_pkts_in':0,        # total number of packets captured
+        'non_arp_pkts_in':0,      # number of non-arp packets captured (ignored)
+        'arp_requests_in':0,      # number of arp request packets captured
+        'arp_replies_in':0,       # number of arp reply packets captured (ignored)
+        'arp_response_out':0      # number of arp responses we've sent
+}
 
 # this is the dictionary that defines  the hosts we'll send an
 #   arp resonse for
-mac_dict = { #"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
+mac_dict = {#"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.20" : "44:61:32:F5:24:0B",
             "192.168.1.21" : "44:61:32:E5:00:47",
             "192.168.1.22" : "44:61:32:D0:71:94",
@@ -50,7 +50,7 @@ mac_dict = { #"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.243" : "84:F3:EB:22:83:4F",
             "192.168.1.242" : "DC:4F:22:20:8A:0F",
             "192.168.1.241" : "EC:FA:BC:91:A8:35"
-            }
+}
 
 class mydaemon(daemon):
     def receive_signal(self, signum, stack):
@@ -100,7 +100,14 @@ def eth_ston(a):
     b = a.split(':')
     c = struct.pack('x')
 
-    c = struct.pack('!6B', int(b[0], 16), int(b[1], 16), int(b[2], 16), int(b[3], 16), int(b[4], 16), int(b[5], 16))
+    c = struct.pack('!6B',
+                    int(b[0], 16),
+                    int(b[1], 16),
+                    int(b[2], 16),
+                    int(b[3], 16),
+                    int(b[4], 16),
+                    int(b[5], 16)
+    )
 
     return c
 
@@ -132,7 +139,7 @@ def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
     return arp_packet
 
 
-def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply = False):
+def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply=False):
     """ send an arp packet to respond to the arp request """
     s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -186,7 +193,7 @@ def arp_reply():
 
 def print_statistics():
     """Let's print out some statistics we kept while running."""
-    message = ', '.join("{!s}={!r}".format(key,val) for (key,val) in sorted(stats.items()))
+    message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
     logger.info(message)
 
     return
@@ -207,21 +214,21 @@ def get_logfile():
     logfile = progname + '.log'
     return logfile
 
-def setup_logging(logfile, progname, foreground = False):
+def setup_logging(logfile, progname, foreground=False):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s",
-        "%Y-%m-%d %H:%M:%S")
+                                    "%Y-%m-%d %H:%M:%S")
 
     if foreground:
-      console_handler = logging.StreamHandler(sys.stdout)
-      console_handler.setFormatter(formatter)
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
 
     file_handler = TimedRotatingFileHandler(logfile, when='midnight')
     file_handler.setFormatter(formatter)
 
     logger = logging.getLogger(progname)
     logger.setLevel(logging.DEBUG)
-    if (foreground):
+    if foreground:
         logger.addHandler(console_handler)
 
     logger.addHandler(file_handler)
@@ -339,7 +346,7 @@ def main(progname, logfile, interface, logger):
     elif cmd == 'help':
         parser.print_help()
         sys.exit(0)
-    else :
+    else:
         parser.print_help()
         sys.exit(0)
     
@@ -359,14 +366,14 @@ if __name__ == "__main__":
         sys.exit(3)
 
     # since we using raw sockets, we need to run as root
-    uid = (pwd.getpwuid( os.getuid()).pw_uid)
-    if (uid != 0):
+    uid = (pwd.getpwuid(os.getuid()).pw_uid)
+    if uid != 0:
         print('must be root to run this')
         sys.exit(1)
 
     # make sure we have enough arguments
     if len(sys.argv) < 2:
-        print("usage: %s start|stop|restart|status|help" % sys.argv[0])
+        print('usage: %s start|stop|restart|status|help' % sys.argv[0])
         sys.exit(1)
 
     # create some 'globals'
