@@ -12,7 +12,7 @@ import sys
 import time
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from daemon import daemon
+from daemon import Daemon
 
 
 # some globals (for now)
@@ -89,27 +89,32 @@ class mydaemon(daemon):
             time.sleep(1)
 
 
-def eth_ntos(a):
+def eth_ntos(mac):
     """ convert a 6 byte field to a human readable mac address """
-    b = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((a[0]), (a[1]), (a[2]), (a[3]), (a[4]), (a[5]))
-    return b
+    ret = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((mac[0]),
+                                           (mac[1]),
+                                           (mac[2]),
+                                           (mac[3]),
+                                           (mac[4]),
+                                           (mac[5]))
+    return ret
 
 
-def eth_ston(a):
+def eth_ston(smac):
     """ convert a mac string to a packed 6B """
-    b = a.split(':')
-    c = struct.pack('x')
+    mac = smac.split(':')
+    ret = struct.pack('x')
 
-    c = struct.pack('!6B',
-                    int(b[0], 16),
-                    int(b[1], 16),
-                    int(b[2], 16),
-                    int(b[3], 16),
-                    int(b[4], 16),
-                    int(b[5], 16)
+    ret = struct.pack('!6B',
+                    int(mac[0], 16),
+                    int(mac[1], 16),
+                    int(mac[2], 16),
+                    int(mac[3], 16),
+                    int(mac[4], 16),
+                    int(mac[5], 16)
     )
 
-    return c
+    return ret
 
 
 def decode_eth(eth_data):
@@ -141,10 +146,10 @@ def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
 
 def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply=False):
     """ send an arp packet to respond to the arp request """
-    s = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    s.bind(('wlan0', 0))
+    sock = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.bind(('wlan0', 0))
     
     #print('aa=', target_mac, sender_mac, my_mac, ARP)
     if broadcast_reply:
@@ -163,11 +168,11 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
     #print('  oa=', arp_pkt)
     packet = eth_hdr + arp_pkt
     #print(packet)
-    s.send(packet)
+    sock.send(packet)
     stats['arp_response_out'] += 1
 
     # this will ensure the GC frees this up
-    s.close()
+    sock.close()
 
 
 def arp_request(target_ip, sender_ip):
@@ -217,7 +222,7 @@ def get_logfile():
 def setup_logging(logfile, progname, foreground=False):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s — %(name)s — %(levelname)s — %(message)s",
-                                    "%Y-%m-%d %H:%M:%S")
+                                  "%Y-%m-%d %H:%M:%S")
 
     if foreground:
         console_handler = logging.StreamHandler(sys.stdout)
@@ -315,7 +320,7 @@ def main(progname, logfile, interface, logger):
     parser.add_argument('-fg', '--foreground', action='store_true',
                         default=False, help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
-                        default=False, help='broadcast arp responses (default: False)' )
+                        default=False, help='broadcast arp responses (default: False)')
 
     # did we get anything useful?
     args = parser.parse_args()
