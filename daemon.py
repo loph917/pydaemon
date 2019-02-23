@@ -1,8 +1,12 @@
 """Generic linux daemon base class for python 3.x."""
 
-import sys, os, time, atexit, signal
+import os
+import sys
+import time
+import atexit
+import signal
 
-class daemon:
+class Daemon:
     """daemon class."""
 
     def __init__(self, progname, pidfile, logger, foreground):
