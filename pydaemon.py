@@ -139,7 +139,8 @@ def build_arp_packet(sender_mac, sender_ip, target_mac, target_ip):
     return arp_packet
 
 
-def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_reply=False):
+def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip,
+                    broadcast_reply=False, my_mac):
     """ send an arp packet to respond to the arp request """
     sock = socket.socket(socket.PF_PACKET, socket.SOCK_RAW, socket.htons(0x800))
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -149,10 +150,10 @@ def send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, broadcast_repl
     #print('aa=', target_mac, sender_mac, my_mac, ARP)
     if broadcast_reply:
         eth_hdr = struct.pack("!6s6sH", eth_ston('FF:FF:FF:FF:FF:FF'),
-                              eth_ston(my_mac), 0x0806)
+                              eth_ston(src_mac), 0x0806)
     else:
         eth_hdr = struct.pack("!6s6sH", eth_ston(sender_mac),
-                              eth_ston(my_mac), 0x0806)
+                              eth_ston(src_mac), 0x0806)
     #print('  oe=', eth_hdr)
     #arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002, eth_ston(my_mac), socket.inet_aton(target_ip), eth_ston(sender_mac), socket.inet_aton(sender_ip))
     arp_pkt = struct.pack("!HHBBH6s4s6s4s", 0x0001, 0x0800, 0x06, 0x04, 0x0002,
@@ -222,18 +223,17 @@ def check_devices(interface):
     return True
 
 
-#def setup_logging(logfile, progname, foreground=False):
 def setup_logging(config):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                                   "%Y-%m-%d %H:%M:%S")
 
     # create a file handler
-    file_handler = TimedRotatingFileHandler(logfile, when='midnight')
+    file_handler = TimedRotatingFileHandler(config['logfile'], when='midnight')
     file_handler.setFormatter(formatter)
 
     # create the logger object
-    logger = logging.getLogger(progname)
+    logger = logging.getLogger(config['progname'])
     logger.setLevel(logging.DEBUG)
 
     # attach the handlers
@@ -300,7 +300,8 @@ def runSniffer(config):
                     #print('  ie=', eth_header)
                     #print('  ia=', packet[eth_length:(arp_length + eth_length)])
                     if arp_request(target_ip, sender_ip):
-                        send_arp_packet(sender_mac, sender_ip, target_mac, target_ip, config['broadcast_reply'])
+                        send_arp_packet(sender_mac, sender_ip, target_mac, target_ip,
+                                        config['broadcast_reply'], config['my_mac'])
                 elif arp_data[4] == 2: # arp reply, we aren't doing anything with these
                     arp_reply()
                 else:
@@ -410,7 +411,7 @@ if __name__ == "__main__":
     config['progname'] = get_program_name() # correct progran name
     config['logfile'] = get_logfile(config['progname']) # default log filename
     config['interface'] = 'wlan0' # interface to use
-    config['logger'] = setup_logging(config['logfile'], config['progname'])
+    config['logger'] = setup_logging(config)
     # get our mac address
     config['my_mac'] = netifaces.ifaddresses('wlan0')[netifaces.AF_LINK][0]['addr']
     
