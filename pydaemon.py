@@ -208,7 +208,7 @@ def get_program_name():
         
     return progname
 
-def get_logfile():
+def get_logfile(progname):
     logfile = None
     logfile = progname + '.log'
     return logfile
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     # create some 'globals'
     config = {}
     config['progname'] = get_program_name() # correct progran name
-    config['logfile'] = get_logfile() # default log filename
+    config['logfile'] = get_logfile(config['progname']) # default log filename
     config['interface'] = 'wlan0' # interface to use
     config['logger'] = setup_logging(config['logfile'], config['progname'])
     # get our mac address
