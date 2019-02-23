@@ -223,6 +223,15 @@ def check_devices(interface):
     return True
 
 
+def logging_add_foreground(config):
+    if config['foreground']:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        config['logger'].addHandler(console_handler)
+    
+    return
+
+
 def setup_logging(config):
     """ define how we want to log things """
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -238,10 +247,6 @@ def setup_logging(config):
 
     # attach the handlers
     logger.addHandler(file_handler)
-    if config['foreground']:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
 
     return logger
 
@@ -328,7 +333,6 @@ def create_parser(config):
                         default=False, help='run in the foreground (default: False)')
     parser.add_argument('-br', '--broadcast', action='store_true',
                         default=False, help='broadcast arp responses (default: False)')
-
     return parser
 
 
@@ -342,6 +346,7 @@ def handle_args(args, config):
     config['logfile'] = args.logfile
     config['broadcast_reply'] = args.broadcast
     config['stat_interval'] = args.stat_interval
+    return
 
 
 def main(config):
@@ -356,6 +361,10 @@ def main(config):
         print('{} is not a valid device.'.format(config['interface']))
         sys.exit(1)
 
+    # are we running in the foregound?
+    if config['foreground']:
+        logging_add_foreground(config)
+    
     # instintate a daemon object
     daemon = my_daemon(config)
 
