@@ -44,7 +44,7 @@ mac_dict = { #"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.241" : "EC:FA:BC:91:A8:35"
             }
 
-class mydaemon(daemon):
+class my_daemon(Daemon):
     def receive_signal(self, signum, stack):
         # we received a HUP, let's exit
         if signum == signal.SIGHUP:
@@ -313,7 +313,7 @@ def main(progname, logfile, interface, logger):
     stat_interval = args.stat_interval
     
     # instintate a daemon object
-    daemon = mydaemon(progname, pidfile, logger, foreground)
+    daemon = my_daemon(progname, pidfile, logger, foreground)
     
     # the various commands to control the daemon
     if (cmd == 'start'):
