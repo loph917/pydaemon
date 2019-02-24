@@ -19,7 +19,8 @@ class Daemon:
         signal.signal(signal.SIGUSR1, self.receive_signal) # dump the packet capture stats
         signal.signal(signal.SIGUSR2, self.receive_signal) # dump the mac dictionary
         signal.signal(signal.SIGHUP, self.receive_signal) # re-start
-        signal.signal(signal.SIGTERM, self.receive_signal) # kill it
+        signal.signal(signal.SIGQUIT, self.receive_signal) # nicely stop things
+        signal.signal(signal.SIGTERM, self.receive_signal) # not-so-nice termination
     
     def daemonize(self):
         """deamonize function using the classic UNIX double fork mechanism."""
@@ -116,7 +117,7 @@ class Daemon:
     def stop(self):
         """Stop the daemon."""
 
-        # Get the pid from the pidfile
+        # get the pid from the pidfile
         try:
             with open(self.pidfile,'r') as pf:
                 pid = int(pf.read().strip())
@@ -133,7 +134,7 @@ class Daemon:
         message = 'stopping daemon pid={}'.format(pid)
         self.logger.info(message)
         
-        # Try killing the daemon process    
+        # try killing the daemon process    
         try:
             while 1:
                 os.kill(pid, signal.SIGTERM)
@@ -169,4 +170,4 @@ class Daemon:
             print('%s is not runing' % (self.progname))
 
     def run(self):
-        """Overrride this in your daemon subclass if you chose"""
+        pass

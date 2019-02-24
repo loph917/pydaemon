@@ -22,10 +22,10 @@ stats = {'total_pkts_in':0,        # total number of packets captured
         'arp_requests_in':0,      # number of arp request packets captured
         'arp_replies_in':0,       # number of arp reply packets captured (ignored)
         'arp_response_out':0      # number of arp responses we've sent
-}
+        }
 
-# this is the dictionary that defines  the hosts we'll send an
-#   arp resonse for
+# this is the dictionary that defines the hosts we'll send an
+#   arp resonse for (mostly these are esp8266s)
 mac_dict = {#"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.20" : "44:61:32:F5:24:0B",
             "192.168.1.21" : "44:61:32:E5:00:47",
@@ -36,63 +36,66 @@ mac_dict = {#"192.168.1.1" : " 4c:ed:fb:ab:d9:48",
             "192.168.1.135" : "84:0D:8E:96:0F:D5",
             "192.168.1.221" : "B4:E6:2D:23:C6:80",
             "192.168.1.224" : "B4:E6:2D:0A:A8:89",
-            "192.168.1.249" : "cc:50:e3:14:3d:ca",
-            "192.168.1.248" : "BC:DD:C2:14:E3:38",
-            "192.168.1.247" : "B4:E6:2D:54:61:EB",
-            "192.168.1.246" : "84:F3:EB:67:CA:A5",
-            "192.168.1.245" : "84:F3:EB:22:D8:04",
-            "192.168.1.244" : "80:7D:3A:7A:8A:70",
-            "192.168.1.243" : "84:F3:EB:22:83:4F",
+            "192.168.1.241" : "EC:FA:BC:91:A8:35",
             "192.168.1.242" : "DC:4F:22:20:8A:0F",
-            "192.168.1.241" : "EC:FA:BC:91:A8:35"
-}
+            "192.168.1.243" : "84:F3:EB:22:83:4F",
+            "192.168.1.244" : "80:7D:3A:7A:8A:70",
+            "192.168.1.245" : "84:F3:EB:22:D8:04",
+            "192.168.1.246" : "84:F3:EB:67:CA:A5",
+            "192.168.1.247" : "B4:E6:2D:54:61:EB",
+            "192.168.1.248" : "BC:DD:C2:14:E3:38",
+            "192.168.1.249" : "cc:50:e3:14:3d:ca"
+            }
 
 class my_daemon(Daemon):
     def receive_signal(self, signum, stack):
-        # we received a HUP, let's exit
+        """ Signal processor. """
         if signum == signal.SIGHUP:
+            # we received a HUP, let's exit
             print('SIGHUP received -- restarting')
             self.restart()
         elif signum == signal.SIGUSR1:
             self.dump_stat()
         elif signum == signal.SIGUSR2:
             self.dump_mac_dictionary()
+        elif signum == signal.SIGQUIT:
+            self.stop()
         elif signum == signal.SIGTERM:
-            print('SIGTERM received')
-            sys.exit(0)
+            message = 'unceremoniously terminating'
+            config['logger'].info(message)
+            sys.exit(1)
         else:
-            # process other signals as an exercise
-            print('received signal %d\n' % signum)
+            # process any other signals as an exercise
+            message = 'received signal {}'.format(signum)
+            config['logger'].info(message)
 
 
     def dump_stat(self):
+        """ Dump statistics about what we've been doing. """
         message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(stats.items()))
         config['logger'].info(message)
         return
 
 
     def dump_mac_dictionary(self):
-        message = ', '.join("{!s}={!r}".format(key, val) for (key, val) in sorted(mac_dict.items()))
+        """ Dump the mac dictionary. """
+        message = ', '.join("{!s}={!s}".format(key, val) for (key, val) in sorted(mac_dict.items()))
         config['logger'].info(message)
         return
 
 
     def run(self):
-        """Overloaded run form the main class"""
-        #
-        while True:
-            time.sleep(1)
+        pass
 
 
 def eth_ntos(mac):
     """ convert a 6 byte field to a human readable mac address """
-    ret = "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((mac[0]),
+    return "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x" % ((mac[0]),
                                            (mac[1]),
                                            (mac[2]),
                                            (mac[3]),
                                            (mac[4]),
                                            (mac[5]))
-    return ret
 
 
 def eth_ston(smac):
